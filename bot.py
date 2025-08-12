@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class SimorghAIBot:
     def __init__(self, telegram_token: str, gemini_api_key: str):
         self.telegram_token = telegram_token
-        self.gemini_api_key = 
+        self.gemini_api_key = gemini_api_key
         self.gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
         
         # ذخیره استفاده کاربران (در production از دیتابیس استفاده کنید)
@@ -26,8 +26,8 @@ class SimorghAIBot:
         self.DAILY_LIMIT = 5  # سوال در روز
         self.MAX_QUESTION_LENGTH = 500  # کاراکتر
         
-        # کانال رسمی (ID کانال خودتان را جایگزین کنید)
-        self.CHANNEL_ID = "@simorghAI"  # یا ID عددی کانال
+        # کانال رسمی
+        self.CHANNEL_ID = os.getenv("CHANNEL_ID", "@simorghAI")
         
     async def is_user_member(self, context: ContextTypes.DEFAULT_TYPE, user_id: int) -> bool:
         """بررسی عضویت کاربر در کانال"""
@@ -62,7 +62,6 @@ class SimorghAIBot:
     async def ask_gemini(self, question: str, user_name: str = "کاربر") -> str:
         """ارسال سوال به Gemini API"""
         try:
-            # پرامپت بهینه شده برای کانال AI
             prompt = f"""شما دستیار هوشمند کانال خبری هوش مصنوعی سیمرغ هستید. 
 به سوال زیر پاسخ دهید:
 - پاسخ را به فارسی و در حدود 200-300 کلمه بدهید
@@ -107,7 +106,7 @@ class SimorghAIBot:
             logger.error(f"Error in ask_gemini: {str(e)}")
             return "❌ خطای غیرمنتظره. لطفاً بعداً تلاش کنید."
 
-# هندلرهای بات
+# نمونه بات برای استفاده در هندلرها
 bot_instance = None
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -115,7 +114,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
     keyboard = [
-        [InlineKeyboardButton("🔗 عضویت در کانال سیمرغ", url=f"https://t.me/{bot_instance.CHANNEL_ID[1:]}")],
+        [InlineKeyboardButton("🔗 عضویت در کانال سیمرغ", url="https://t.me/simorghAI")],
         [InlineKeyboardButton("❓ راهنما", callback_data="help")],
         [InlineKeyboardButton("📊 آمار استفاده", callback_data="stats")]
     ]
@@ -159,7 +158,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ❌ از سوالات نامرتبط خودداری کنید
 ❌ پیام‌های خیلی کوتاه یا مبهم نفرستید
 
-📞 **پشتیبانی:** @SimorghAI_Support"""
+📞 **پشتیبانی:** @SimorghAI"""
     
     await update.message.reply_text(help_text)
 
@@ -170,7 +169,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # بررسی عضویت در کانال
     if not await bot_instance.is_user_member(context, user.id):
-        keyboard = [[InlineKeyboardButton("🔗 عضویت در کانال", url=f"https://t.me/{bot_instance.CHANNEL_ID[1:]}")]]
+        keyboard = [[InlineKeyboardButton("🔗 عضویت در کانال", url="https://t.me/simorghAI")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         
         await update.message.reply_text(
@@ -208,14 +207,13 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         answer = await bot_instance.ask_gemini(message, user.first_name)
         
         # اضافه کردن footer
-        remaining -= 1  # کاهش به دلیل استفاده فعلی
+        remaining -= 1
         footer = f"\n\n━━━━━━━━━━━━━━\n💡 سوالات باقی‌مانده: {remaining}/{bot_instance.DAILY_LIMIT}\n🔗 کانال: @SimorghAI"
         
         full_answer = answer + footer
         
         # ارسال پاسخ
-        if len(full_answer) > 4096:  # محدودیت تلگرام
-            # تقسیم پیام طولانی
+        if len(full_answer) > 4096:
             await update.message.reply_text(answer)
             await update.message.reply_text(footer)
         else:
@@ -227,32 +225,36 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "❌ خطا در پردازش سوال شما. لطفاً دوباره تلاش کنید."
         )
 
-async def stats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """نمایش آمار کاربر"""
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """پردازش کلیک روی دکمه‌ها"""
     query = update.callback_query
     await query.answer()
     
-    user_id = query.from_user.id
-    can_ask, remaining = bot_instance.check_user_limit(user_id)
-    
-    stats_text = f"""📊 **آمار استفاده شما**
+    if query.data == "help":
+        await help_command(update, context)
+    elif query.data == "stats":
+        user_id = query.from_user.id
+        can_ask, remaining = bot_instance.check_user_limit(user_id)
+        
+        stats_text = f"""📊 **آمار استفاده شما**
 
 🗓 تاریخ: {datetime.now().strftime('%Y/%m/%d')}
 ✅ استفاده شده: {bot_instance.DAILY_LIMIT - remaining}/{bot_instance.DAILY_LIMIT}
 ⏰ باقی‌مانده: {remaining} سوال
 
 🔄 آمار فردا ریست می‌شود"""
-    
-    await query.edit_message_text(stats_text)
+        
+        await query.edit_message_text(stats_text)
 
 def main():
     """اجرای اصلی بات"""
-    # متغیرهای محیطی (در production از .env file استفاده کنید)
-    TELEGRAM_TOKEN = "YOUR_TELEGRAM_BOT_TOKEN"  # توکن ربات تلگرام
-    GEMINI_API_KEY = "YOUR_GEMINI_API_KEY"      # کلید API جمینای
+    # خواندن از متغیرهای محیطی
+    TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
     
     if not TELEGRAM_TOKEN or not GEMINI_API_KEY:
-        print("❌ لطفاً توکن‌های لازم را تنظیم کنید!")
+        print("❌ لطفاً متغیرهای محیطی TELEGRAM_TOKEN و GEMINI_API_KEY را تنظیم کنید!")
+        print("مثال: export TELEGRAM_TOKEN='your_token_here'")
         return
     
     # ایجاد نمونه بات
