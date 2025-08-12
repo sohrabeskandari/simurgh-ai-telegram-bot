@@ -114,10 +114,12 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     
     keyboard = [
-        [InlineKeyboardButton("🔗 عضویت در کانال سیمرغ", url="https://t.me/simorghAI")],
-        [InlineKeyboardButton("❓ راهنما", callback_data="help")],
-        [InlineKeyboardButton("📊 آمار استفاده", callback_data="stats")]
-    ]
+    [InlineKeyboardButton("🔗 عضویت در کانال سیمرغ", url="https://t.me/simorghAI")],
+    [InlineKeyboardButton("❓ راهنما", callback_data="help")],
+    [InlineKeyboardButton("📊 آمار استفاده", callback_data="stats")],
+    [InlineKeyboardButton("🔍 جستجو با کد مدل", callback_data="search_model")]
+]
+
     reply_markup = InlineKeyboardMarkup(keyboard)
     
     welcome_text = f"""🤖 سلام {user.first_name}!
@@ -235,6 +237,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "stats":
         user_id = query.from_user.id
         can_ask, remaining = bot_instance.check_user_limit(user_id)
+    elif query.data == "search_model":
+    context.user_data["awaiting_model_code"] = True
+    await query.edit_message_text("🔍 لطفاً کد مدل را وارد کنید:")
+
         
         stats_text = f"""📊 **آمار استفاده شما**
 
