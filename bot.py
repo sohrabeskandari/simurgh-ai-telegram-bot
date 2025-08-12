@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class SimorghAIBot:
     def __init__(self, telegram_token: str, gemini_api_key: str):
         self.telegram_token = telegram_token
-        self.gemini_api_key = AIzaSyCk7Bj0RQVCeVp-09SvMvyE6WGYiAv_iEU
+        self.gemini_api_key = 
         self.gemini_url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent"
         
         # ذخیره استفاده کاربران (در production از دیتابیس استفاده کنید)
